@@ -312,17 +312,16 @@ write(dec,file='top40_decreased_genes.txt',sep='\t')
 #heat maps
 
 unt=4
-trt=12
+trt=4
 sample.conditions = factor(c(rep("untreated",unt), rep("treated",trt)), levels=c("untreated","treated"))        
  
-deseq.counts.table = DESeqDataSetFromMatrix(merged.counts, DataFrame(sample.conditions), ~ sample.conditions);
+deseq.counts.table = DESeqDataSetFromMatrix(merged.counts[,c(13:16,5:8)], DataFrame(sample.conditions), ~ sample.conditions);
 colData(deseq.counts.table)$condition<-factor(colData(deseq.counts.table)$sample.conditions, levels=c('untreated','treated'));
 dds = DESeq(deseq.counts.table)
 rld_HH = rlogTransformation(dds)
 
 a = assay(rld_HH)[c(inc[1:20],dec[1:20]),]
 a = a - rowMeans(a)
-a = a[,c(13:16,5:8)]
 
 pdf(file='Ab.v.noAb.top20.heatmap.pdf')
 print(pheatmap(a, cluster_rows=FALSE, show_rownames=TRUE,cluster_cols=FALSE))
@@ -342,7 +341,6 @@ lattice = lattice[order(lattice$padj),]
 
 a = assay(rld_HH)[rownames(lattice)[1:20],]
 a = a - rowMeans(a)
-a = a[,c(13:16,5:8)]
 
 pdf(file='complement.top20.heatmap.pdf')
 print(pheatmap(a, cluster_rows=FALSE, show_rownames=TRUE,cluster_cols=FALSE))
@@ -362,7 +360,6 @@ lattice = lattice[order(lattice$padj),]
 
 a = assay(rld_HH)[rownames(lattice)[1:40],]
 a = a - rowMeans(a)
-a = a[,c(13:16,5:8)]
 
 pdf(file='inflammation.top40.heatmap.pdf')
 print(pheatmap(a, cluster_rows=FALSE, show_rownames=TRUE,cluster_cols=FALSE))
