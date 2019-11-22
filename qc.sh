@@ -10,3 +10,5 @@ do
     UNIQUE_COUNTS=`samtools view -c $name.noDups.bam`
     echo -e "${name}\t$ALL_COUNTS\t$WITHOUT_JUNK\t$UNIQUE_COUNTS" >> qc_metrics.txt
 done
+
+Rscript qc.R
