@@ -1,9 +1,8 @@
-cd ~/Desktop/Ashley_RNAseq
-
-#Build mm10 genome
-wget http://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.2bit
-twoBitToFa mm10.2bit mm10.fa
-hisat2-build mm10.fa mm10
+#mkdir creates directories
+#we'll make one called RNAseq_analysis
+mkdir RNAseq_analysis
+#cd is used to move into directories
+cd RNAseq_analysis
 
 #Rename no ablation + TBI group
 mv V1_R1_001.fastq.gz noAb_TBI_rep1_PE1.fastq.gz
@@ -45,7 +44,17 @@ mv V-A5-noTBI_R2_001.fastq.gz Ab_Sham_rep3_PE2.fastq.gz
 mv V-A6-noTBI_R1_001.fastq.gz Ab_Sham_rep4_PE1.fastq.gz
 mv V-A6-noTBI_R2_001.fastq.gz Ab_Sham_rep4_PE2.fastq.gz
 
-#gtf file when downloaded from ensemble is missing Chr prefix for the chromosome column, which will cause an error with htseq-count later on
+#download the mm10 genome file
+wget http://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/mm10.2bit
+#convert it to the correct format
+twoBitToFa mm10.2bit mm10.fa
+#build genome index
+hisat2-build mm10.fa mm10
+
+#download .gtf file
+wget ftp://ftp.ensembl.org/pub/release-98/gtf/mus_musculus/Mus_musculus.GRCm38.98.gtf.gz
+
+#gtf file when downloaded from ensemble is missing 'chr' prefix for the chromosome column, which will cause an error with htseq-count later on
 #Correct gtf file by adding chr prefix at the beginning of every line, except header
 awk '{ if($1 !~ /^#/){print "chr"$0} else{print $0} }'  Mus_musculus.GRCm38.98.gtf > Mus_musculus.GRCm38.98.corrected.gtf
 
@@ -61,6 +70,7 @@ do
 done
 
 #Counting alignment before and after junk removal for QC
+#Should maybe include chrM depending on biological context...
 for i in *sorted.bam 
 do
 	name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".sorted." '{print $1}')
@@ -81,20 +91,12 @@ do
 	echo $name
 	echo sorting and removing dups
 	samtools sort -n $i -o $name.noJunk.bam
-	samtools fixmate -m $name.noJunk.bam $name.fixmate.bam			#fixmate requires the bam be sorted by name
+        #fixmate requires the bam be sorted by name
+	samtools fixmate -m $name.noJunk.bam $name.fixmate.bam
+        #markdup requires the bam be sorted by position (default sorting method)
 	samtools sort $name.fixmate.bam -o $name.fixmate.bam
-	samtools markdup -rs $name.fixmate.bam $name.noDups.bam		#markdup requires the bam be sorted by position (default sorting method)
+	samtools markdup -rs $name.fixmate.bam $name.noDups.bam		
 	rm $name.fixmate.bam
-done
-
-for i in *.noJunk.bam #Counting alignments before and after PCR duplicates removal for QC
-do
-	name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".noJunk." '{print $1}')
-	echo $name
-	echo before duplicate removal
-	samtools view -c $i
-	echo after duplicate removal
-	samtools view -c $name.noDups.bam
 done
 
 #HT-Seq, after PCR duplicates were removed ("-bf 1 $i" is used to output only paired-end alignments. Alignments missing a mate throw an error)
@@ -102,5 +104,8 @@ for i in *.noDups.bam
 do
     name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".noDups." '{print $1}')
     echo $name
-    samtools view -bf 1 $i | htseq-count -r pos -f bam --stranded=reverse - Mus_musculus.GRCm38.98.corrected.gtf > $name.gene.counts.txt
+    samtools view -bf 1 $i | htseq-count -r pos -f bam \
+        --stranded=reverse - Mus_musculus.GRCm38.98.corrected.gtf > $name.gene.counts.txt
 done
+
+sh qc.sh
