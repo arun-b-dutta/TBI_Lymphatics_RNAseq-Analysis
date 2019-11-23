@@ -1,16 +1,3 @@
-#NoAb_Sham - light blue
-#Ab_Sham - dark grey
-#NoAB_TBI - blue
-#Ab_TBI - orange
-
-#Do:
-#DONE - FDR of 0.05
-#DONE - heatmap top 40 up and down defined by noAb_TBI v. Ab_TBI
-#GO term / BART analysis for same top 40 up/down
-#square PCA plot and change colors, no difference in transparency
-#x-ref inflammatory genes
-#vignette!
-
 library(lattice)
 library(DESeq2)
 library(pheatmap)
@@ -365,17 +352,43 @@ pdf(file='inflammation.top40.heatmap.pdf')
 print(pheatmap(a, cluster_rows=FALSE, show_rownames=TRUE,cluster_cols=FALSE))
 dev.off()
 
-#volcano plots
+#DAM genes
+x = read.table('DAM.genes.txt',sep='\t')
+x = as.vector(x[,1])
+x[18] = 'Lilrb4a'
+x = x[-c(7,19)]
+
+#pull the row numbers corresponding to complement genes and put them in a list object called 'genes'
+genes = c()
+for (i in x) {
+    genes = append(genes,grep(paste0('^',toupper(i),'$'),toupper(rownames(noAb.tbi.v.ab.tbi.lattice))))
+}
+
+#pull the appropriate rows from the lattice object and reorder them by padj
+lattice = noAb.tbi.v.ab.tbi.lattice[genes,]
+lattice = lattice[order(lattice$padj),]
+
+#define object 'a' as the normalized, log2-transformed read counts of just the genes and samples of interest
+a = assay(rld_HH)[rownames(lattice),]
+#center data by subtracting mean of each row
+a = a - rowMeans(a)
+
+#plot and save heat map
+pdf(file='DAM.heatmap.pdf')
+print(pheatmap(a, cluster_rows=FALSE, show_rownames=TRUE,cluster_cols=FALSE))
+dev.off()
+
+#volcano plots (p-value < 0.05)
 volcano.plot <- function(lattice, thresh = 0.05, treat='Ablation', title="", highlights = c()) {
     name = strsplit(deparse(substitute(lattice)),'.lattice')[[1]][1]
 
-    #add a 'color' column that will dictate data point color
+    #for each plot we set the variable 'lattice' to be the comparison of interest and add a 'color' column 
+    #that will dictate data point color
     lattice$color = 'black'
     lattice[lattice$treat == paste0(treat,' Activated'),]$color = 'red'
     lattice[lattice$treat == paste0(treat,' Repressed'),]$color = 'blue'
 
-    #if a vector of 'highlight' genes is inputted, then iterate through vector
-    #and change 'color' value of those genes to 'green'
+    #if a vector of 'highlight' genes is inputted, then ...
     if (length(highlights) > 0) {
         name = paste0(name,'.highlights')
         highlights = paste0('^',highlights,'$')
@@ -404,11 +417,11 @@ volcano.plot(noAb.sham.v.noAb.tbi.lattice, treat ='TBI', title='No ablation Sham
 x = c('Arc', 'C1qc', 'C1qa', 'Itgam', 'C4b', 'Fn1')
 volcano.plot(noAb.tbi.v.ab.tbi.lattice, treat='Ablation', title='TBI No Ablation v. Ablation', highlights = x)
 
-#old method volcano plots DO NOT USE!
+#old way - DON'T USE
 lattice = noAb.sham.v.noAb.tbi.lattice
 
 pdf(file = 'noAb.sham.v.no.Ab.tbi.volcano.plot.pdf')
-plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'TBI with Ablation v. TBI without Ablation Volcano Plot', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
+plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'No Ablation Sham v. TBI', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
 with(subset(lattice, pvalue < 0.05 & log2FoldChange < 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='blue'))
 with(subset(lattice, pvalue < 0.05 & log2FoldChange > 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='red'))
 abline(h=-log(0.05,base=10), lty = 5, lwd = 4, col = '#C0C0C0')
@@ -417,7 +430,7 @@ dev.off()
 lattice = ab.sham.v.ab.tbi.lattice
 
 pdf(file = 'ab.sham.v.ab.tbi.volcano.plot.pdf')
-plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'TBI with Ablation v. TBI without Ablation Volcano Plot', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
+plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'Ablation Sham v. TBI', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
 with(subset(lattice, pvalue < 0.05 & log2FoldChange < 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='blue'))
 with(subset(lattice, pvalue < 0.05 & log2FoldChange > 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='red'))
 abline(h=-log(0.05,base=10), lty = 5, lwd = 4, col = '#C0C0C0')
@@ -426,7 +439,7 @@ dev.off()
 lattice = noAb.tbi.v.ab.tbi.lattice
 
 pdf(file = 'noAb.tbi.v.ab.tbi.volcano.plot')
-plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'TBI with Ablation v. TBI without Ablation Volcano Plot', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
+plot(lattice$log2FoldChange, -log10(lattice$pvalue), cex = 0.8, pch = 20, main = 'TBI No Ablation v. Ablation', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
 with(subset(lattice, pvalue < 0.05 & log2FoldChange < 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='blue'))
 with(subset(lattice, pvalue < 0.05 & log2FoldChange > 0),points(log2FoldChange,-log10(pvalue), cex = 0.8, pch = 20, col='red'))
 abline(h=-log(0.05,base=10), lty = 5, lwd = 4, col = '#C0C0C0')
@@ -440,14 +453,14 @@ row.nums = append(row.nums, grep(i,rownames(lattice)))
 }
 
 lattice$color = 'black'
-lattice[lattice$arfauxin == 'Ablation Activated',]$color = 'red'
-lattice[lattice$arfauxin == 'Ablation Repressed',]$color = 'blue'
+lattice[lattice$treat == 'Ablation Activated',]$color = 'red'
+lattice[lattice$treat == 'Ablation Repressed',]$color = 'blue'
 lattice[row.nums,]$color = 'green'
 
 pdf(file = 'noAb.tbi.v.ab.tbi.highlights.volcano.plot.pdf')
 
 plot(lattice$log2FoldChange, -log10(lattice$pvalue), col =
-lattice$color, cex = 0.8, pch = 20, main = 'TBI with Ablation v. TBI without Ablation Volcano Plot', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
+lattice$color, cex = 0.8, pch = 20, main = 'TBI No Ablation v. Ablation', xlab = 'log2FoldChange', ylab = '-log10(pvalue)')
 abline(h=-log(0.05,base=10), lty = 5, lwd = 4, col = '#C0C0C0')
 
 dev.off()
