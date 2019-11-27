@@ -1,6 +1,8 @@
 library(lattice)
 library(DESeq2)
 library(pheatmap)
+library(GSA)
+library(seq2pathway)
 
 source('https://raw.githubusercontent.com/guertinlab/seqOutBias/master/docs/R/seqOutBias_functions.R')
 source('https://raw.githubusercontent.com/mjg54/znf143_pro_seq_analysis/master/docs/ZNF143_functions.R')
@@ -15,31 +17,31 @@ categorize.deseq.df <- function(df, fdr = 0.05, log2fold = 0.0, treat
 
      if (nrow(df[df$padj < fdr & !is.na(df$padj) & df$log2FoldChange > log2fold,]) != 0) {
      	df.activated = df[df$padj < fdr & !is.na(df$padj) & df$log2FoldChange > log2fold,]
-	df.activated$arfauxin = paste(treat, 'Activated')
+	df.activated$response = paste(treat, 'Activated')
 	}
 
      if (nrow(df[df$padj < fdr & !is.na(df$padj) & df$log2FoldChange < -log2fold,]) != 0) {
      	df.repressed = df[df$padj < fdr & !is.na(df$padj) & df$log2FoldChange < -log2fold,]
-	df.repressed$arfauxin = paste(treat, 'Repressed')
+	df.repressed$response = paste(treat, 'Repressed')
 	}
     
     df.unchanged = df[df$padj > 0.5 & !is.na(df$padj) & abs(df$log2FoldChange) < 0.25,]
-    df.unchanged$arfauxin = paste(treat, 'Unchanged')
+    df.unchanged$response = paste(treat, 'Unchanged')
 
     df.dregs = df[!(df$padj < fdr & !is.na(df$padj) & df$log2FoldChange > log2fold) &
                   !(df$padj < fdr & !is.na(df$padj) & df$log2FoldChange < -log2fold) &
                   !(df$padj > 0.5 & !is.na(df$padj) &
     		  abs(df$log2FoldChange) < 0.25), ]
-    df.dregs$arfauxin = paste(treat, 'All Other Genes')
+    df.dregs$response = paste(treat, 'All Other Genes')
     
     df.effects.lattice = 
     rbind(df.activated, 
           df.unchanged, 
           df.repressed, 
           df.dregs)
-    df.effects.lattice$arfauxin = factor(df.effects.lattice$arfauxin)
-    df.effects.lattice$arfauxin = relevel(df.effects.lattice$arfauxin, ref = paste(treat, 'Unchanged'))
-    df.effects.lattice$arfauxin = relevel(df.effects.lattice$arfauxin, ref = paste(treat, 'All Other Genes'))
+    df.effects.lattice$response = factor(df.effects.lattice$response)
+    df.effects.lattice$response = relevel(df.effects.lattice$response, ref = paste(treat, 'Unchanged'))
+    df.effects.lattice$response = relevel(df.effects.lattice$response, ref = paste(treat, 'All Other Genes'))
     return(df.effects.lattice)
 }
 
@@ -128,7 +130,7 @@ ab.sham.v.ab.tbi.lattice =
 pdf("ab.sham.v.ab.tbi.MAplot.pdf", useDingbats = FALSE, width=4, height=3.33);
 print(xyplot(ab.sham.v.ab.tbi.lattice$log2FoldChange ~ 
                  log(ab.sham.v.ab.tbi.lattice$baseMean, base=10), 
-             groups=ab.sham.v.ab.tbi.lattice$arfauxin,
+             groups=ab.sham.v.ab.tbi.lattice$response,
              col=c("grey90", "grey60", "red", "blue"),
              scales="free",
              aspect=1,
@@ -173,7 +175,7 @@ noAb.tbi.v.ab.tbi.lattice =
 pdf("noAb.tbi.v.ab.tbi.MAplot.pdf", useDingbats = FALSE, width=4, height=3.33);
 print(xyplot(noAb.tbi.v.ab.tbi.lattice$log2FoldChange ~ 
                  log(noAb.tbi.v.ab.tbi.lattice$baseMean, base=10), 
-             groups=noAb.tbi.v.ab.tbi.lattice$arfauxin,
+             groups=noAb.tbi.v.ab.tbi.lattice$response,
              col=c("grey90", "grey60", "red", "blue"),
              scales="free",
              aspect=1,
@@ -218,7 +220,7 @@ noAb.sham.v.noAb.tbi.lattice =
 pdf("noAb.sham.v.noAb.tbi.MAplot.pdf", useDingbats = FALSE, width=4, height=3.33);
 print(xyplot(noAb.sham.v.noAb.tbi.lattice$log2FoldChange ~ 
                  log(noAb.sham.v.noAb.tbi.lattice$baseMean, base=10), 
-             groups=noAb.sham.v.noAb.tbi.lattice$arfauxin,
+             groups=noAb.sham.v.noAb.tbi.lattice$response,
              col=c("grey90", "grey60", "red", "blue"),
              scales="free",
              aspect=1,
@@ -263,7 +265,7 @@ noAb.sham.v.Ab.sham.lattice =
 pdf("noAb.sham.v.Ab.sham.MAplot.pdf", useDingbats = FALSE, width=4, height=3.33);
 print(xyplot(noAb.sham.v.Ab.sham.lattice$log2FoldChange ~ 
                  log(noAb.sham.v.Ab.sham.lattice$baseMean, base=10), 
-             groups=noAb.sham.v.Ab.sham.lattice$arfauxin,
+             groups=noAb.sham.v.Ab.sham.lattice$response,
              col=c("grey90", "grey60", "red", "blue"),
              scales="free",
              aspect=1,
@@ -295,6 +297,55 @@ y = x[x$log2FoldChange < 0,]
 y = y[order(y$padj),]
 dec = rownames(y)[1:40]
 write(dec,file='top40_decreased_genes.txt',sep='\t')
+
+#GSEA
+
+#command line
+#wget http://software.broadinstitute.org/gsea/msigdb/download_file.jsp?filePath=/resources/msigdb/7.0/msigdb.v7.0.symbols.gmt
+
+msigdb = GSA.read.gmt('msigdb.v7.0.symbols.gmt')
+
+lattice = na.omit(noAb.tbi.v.ab.tbi.lattice)
+lattice = lattice[lattice$pvalue < 0.05 & lattice$log2FoldChange > 0,]
+
+inc.pval.0.05.gsea = FisherTest_MsigDB(msigdb,toupper(rownames(lattice)),'mm10')
+
+x = data.frame(GeneSet = inc.pval.0.05.gsea$GeneSet, padj = inc.pval.0.05.gsea$FDR)
+write.table(x,file='inc.gene.sets.pval.0.05.txt',sep='\t')
+
+lattice = na.omit(noAb.tbi.v.ab.tbi.lattice)
+lattice = lattice[lattice$pvalue < 0.05 & lattice$log2FoldChange < 0,]
+
+dec.pval.0.05.gsea = FisherTest_MsigDB(msigdb,toupper(rownames(lattice)),'mm10')
+
+x = data.frame(GeneSet = dec.pval.0.05.gsea$GeneSet, padj = dec.pval.0.05.gsea$FDR)
+write.table(x,file='dec.gene.sets.pval.0.05.txt',sep='\t')
+
+gene.sets = c("GO_REGULATION_OF_IMMUNE_SYSTEM_PROCESS","GO_POSITIVE_REGULATION_OF_IMMUNE_SYSTEM_PROCESS",
+              "GO_REGULATION_OF_IMMUNE_RESPONSE","GO_INNATE_IMMUNE_RESPONSE",
+              "GO_REGULATION_OF_IMMUNE_EFFECTOR_PROCESS","GO_IMMUNE_EFFECTOR_PROCESS",
+              "GO_REGULATION_OF_INNATE_IMMUNE_RESPONSE","REACTOME_INNATE_IMMUNE_SYSTEM",
+              "HALLMARK_COMPLEMENT","GO_CELL_ACTIVATION_INVOLVED_IN_IMMUNE_RESPONSE")
+
+row.nums = c()
+for (i in gene.sets) {
+    row.nums = append(row.nums,grep(i,inc.pval.0.05.gsea$GeneSet))
+}
+
+x = inc.pval.0.05.gsea[row.nums,]
+x = x[order(x$FDR),]
+x$order = 10:1
+
+pdf(file = 'inc.gsea.0.05.pval.pdf',width=9)
+print(barchart((-log2(FDR)) ~ reorder(GeneSet,order), data = x,
+               main = "Enriched Gene Sets in Increased Genes (0.05 p-val)",
+               xlab = "Gene Set",
+               ylab = "-log2(padj)",
+               col = 'red',
+               #ylim = c(0,1),
+               scales = list(x = list(rot = 60)),
+               horiz = FALSE))
+dev.off()
 
 #heat maps
 
