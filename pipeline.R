@@ -45,12 +45,52 @@ categorize.deseq.df <- function(df, fdr = 0.05, log2fold = 0.0, treat
     return(df.effects.lattice)
 }
 
-run.deseq.list.any <- function(mat, unt = 2, trt =2) {
-    sample.conditions = factor(c(rep("untreated",unt), rep("treated",trt)), levels=c("untreated","treated"))        
-    deseq.counts.table = DESeqDataSetFromMatrix(mat, DataFrame(sample.conditions), ~ sample.conditions);
-    colData(deseq.counts.table)$condition<-factor(colData(deseq.counts.table)$sample.conditions, levels=c('untreated','treated'));
-    dds = DESeq(deseq.counts.table)
-    return(dds)
+plotPCAlattice <- function(df, file = 'PCA_lattice.pdf') {  
+  perVar = round(100 * attr(df, "percentVar"))
+  df = data.frame(cbind(df, sapply(strsplit(as.character(df$name), '_rep'), '[', 1)))
+  colnames(df) = c(colnames(df)[1:(ncol(df)-1)], 'unique_condition')
+  print(df)
+  #get colors and take away the hex transparency
+  color.x = substring(rainbow(length(unique(df$unique_condition))), 1,7) 
+  
+  df$color = NA
+  df$alpha.x = NA
+  df$alpha.y = NA
+  df$colpal = NA
+  
+  for (i in 1:length(unique(df$unique_condition))) {
+    
+    df[df$unique_condition == unique(df$unique_condition)[[i]],]$color = color.x[i]   
+    #gives replicates for unique condition
+    reps_col<- df[df$unique_condition == unique(df$unique_condition)[[i]],]
+    #gives number of replicates in unique condition
+    replicates.x = nrow(reps_col)
+    alx <- rev(seq(0.2, 1, length.out = replicates.x))
+    
+    #count transparency(alx), convert alx to hex(aly), combain color and transparency(cp)
+    for(rep in 1:replicates.x) {
+    
+      na <- reps_col[rep, ]$name
+      df[df$name == na, ]$alpha.x = alx[rep]
+      aly = as.hexmode(round(alx * 255))
+      df[df$name == na, ]$alpha.y = aly[rep]
+      cp = paste0(color.x[i], aly)
+      df[df$name == na, ]$colpal = cp[rep]
+      #print(df)
+    }
+  }
+  colpal = df$colpal
+  df$name = gsub('_', ' ', df$name)
+  df$name <- factor(df$name, levels=df$name, order=TRUE)
+  pdf(file, width=6, height=6, useDingbats=FALSE)
+  print(xyplot(PC2 ~ PC1, groups = name, data=df,
+               xlab = paste('PC1: ', perVar[1], '% variance', sep = ''),
+               ylab = paste('PC2: ', perVar[2], '% variance', sep = ''),
+               par.settings = list(superpose.symbol = list(pch = c(20), col=colpal)),
+               pch = 20, cex = 1.7,
+               auto.key = TRUE,
+               col = colpal))
+  dev.off()
 }
 
 #These two codes create a data frame for all the libraries, x is the gene names
@@ -97,9 +137,14 @@ save(merged.counts, file="merged.counts.Rdata")
 rm(ensembl.code)
 
 #PCA
+unt=4
+trt=12
+sample.conditions = factor(c(rep("untreated",unt), rep("treated",trt)), levels=c("untreated","treated"))
 
-merged_dds = run.deseq.list.any(merged.counts, unt=4, trt=12)
-rld_HH = rlogTransformation(merged_dds)
+deseq.counts.table = DESeqDataSetFromMatrix(merged.counts, DataFrame(sample.conditions), ~ sample.conditions);
+colData(deseq.counts.table)$condition<-factor(colData(deseq.counts.table)$sample.conditions, levels=c('untreated','treated'));
+dds = DESeq(deseq.counts.table)
+rld_HH = rlogTransformation(dds)
 pca.dat = plotPCA(rld_HH, intgroup="condition", returnData=TRUE)
 percentVar = round(100 * attr(pca.dat, "percentVar"))
 plotPCAlattice(pca.dat, file = 'PCA_RNAseq.pdf')
