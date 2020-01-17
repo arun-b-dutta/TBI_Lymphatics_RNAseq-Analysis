@@ -59,7 +59,7 @@ wget ftp://ftp.ensembl.org/pub/release-98/gtf/mus_musculus/Mus_musculus.GRCm38.9
 awk '{ if($1 !~ /^#/){print "chr"$0} else{print $0} }'  Mus_musculus.GRCm38.98.gtf > Mus_musculus.GRCm38.98.corrected.gtf
 
 #Extract splice sites. This is so hisat2 knows to skip intronic sequences when aligning
-python3 ~/pyscripts/hisat2_extract_splice_sites.py Mus_musculus.GRCm38.98.corrected.gtf > Mus_musculus.GRCm38.98.splicesites.txt
+python3 /usr/local/bin/hisat2-2.1.0/hisat2_extract_splice_sites.py Mus_musculus.GRCm38.98.corrected.gtf > Mus_musculus.GRCm38.98.splicesites.txt
 
 #Align reads and convert to bam
 for i in *PE1.fastq.gz
