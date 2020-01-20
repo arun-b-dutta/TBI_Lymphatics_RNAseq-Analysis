@@ -64,45 +64,42 @@ python3 /usr/local/bin/hisat2-2.1.0/hisat2_extract_splice_sites.py Mus_musculus.
 #Align reads and convert to bam
 for i in *PE1.fastq.gz
 do
-    name=$(echo $i | awk -F"/" '{print $NF}' | awk -F"_PE." '{print $1}')
+    name=$(echo $i | awk -F"_PE." '{print $1}')
     echo $name
-    hisat2 -x mm10 --rna-strandness RF --known-splicesite-infile Mus_musculus.GRCm38.99.splicesites.txt -1 $i -2 ${name}_PE2.fastq.gz | samtools view -bS - | samtools sort -n - -o $name.sorted.bam
+    hisat2 -x mm10 --rna-strandness RF --known-splicesite-infile Mus_musculus.GRCm38.99.splicesites.txt \
+        -1 $i -2 ${name}_PE2.fastq.gz | samtools view -bS - | samtools sort -n - -o $name.sorted.bam
 done
 
 #Counting alignment before and after junk removal for QC
 #Should maybe include chrM depending on biological context...
 for i in *sorted.bam 
 do
-	name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".sorted." '{print $1}')
-	echo $name
-	echo before junk removal
-	samtools view -c $i
-	samtools sort $i -o $i
-	samtools index $i
-	samtools view -bh $i chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY chrM > $name.noJunk.bam
-	echo after junk removal
-	samtools view -c $name.noJunk.bam
+    name=$(echo $i | awk -F".sorted." '{print $1}')
+    echo $name
+    samtools sort $i -o $i
+    samtools index $i
+    samtools view -bh $i chr1 chr2 chr3 chr4 chr5 chr6 chr7 chr8 chr9 chr10 \
+             chr11 chr12 chr13 chr14 chr15 chr16 chr17 chr18 chr19 chr20 chr21 chr22 chrX chrY chrM > $name.noJunk.bam
 done
 
 #Removing PCR Duplicates with fixmate and markdup
 for i in *.noJunk.bam
 do
-	name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".noJunk." '{print $1}')
-	echo $name
-	echo sorting and removing dups
-	samtools sort -n $i -o $name.noJunk.bam
-        #fixmate requires the bam be sorted by name
-	samtools fixmate -m $name.noJunk.bam $name.fixmate.bam
-        #markdup requires the bam be sorted by position (default sorting method)
-	samtools sort $name.fixmate.bam -o $name.fixmate.bam
-	samtools markdup -rs $name.fixmate.bam $name.noDups.bam		
-	rm $name.fixmate.bam
+    name=$(echo $i | awk -F".noJunk." '{print $1}')
+    echo $name
+    #fixmate requires the bam be sorted by name
+    samtools sort -n $i -o $name.noJunk.bam
+    samtools fixmate -m $name.noJunk.bam $name.fixmate.bam
+    #markdup requires the bam be sorted by position (default sorting method)
+    samtools sort $name.fixmate.bam -o $name.fixmate.bam
+    samtools markdup -rs $name.fixmate.bam $name.noDups.bam		
+    rm $name.fixmate.bam
 done
 
 #HT-Seq, after PCR duplicates were removed ("-bf 1 $i" is used to output only paired-end alignments. Alignments missing a mate throw an error)
 for i in *.noDups.bam
 do
-    name=$(echo $i | awk -F"/" '{print $NF}' | awk -F".noDups." '{print $1}')
+    name=$(echo $i | awk -F".noDups." '{print $1}')
     echo $name
     samtools view -bf 1 $i | htseq-count -r pos -f bam \
         --stranded=reverse - Mus_musculus.GRCm38.98.corrected.gtf > $name.gene.counts.txt
