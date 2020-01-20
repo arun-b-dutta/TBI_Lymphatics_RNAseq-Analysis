@@ -51,22 +51,22 @@ twoBitToFa mm10.2bit mm10.fa
 #build genome index
 hisat2-build mm10.fa mm10
 
-#download .gtf file
-wget ftp://ftp.ensembl.org/pub/release-98/gtf/mus_musculus/Mus_musculus.GRCm38.98.gtf.gz
+#download and unzip .gtf file
+wget ftp://ftp.ensembl.org/pub/release-99/gtf/mus_musculus/Mus_musculus.GRCm38.99.gtf.gz
+gunzip Mus_musculus.GRCm38.99.gtf.gz
 
-#gtf file when downloaded from ensemble is missing 'chr' prefix for the chromosome column, which will cause an error with htseq-count later on
-#Correct gtf file by adding chr prefix at the beginning of every line, except header
-awk '{ if($1 !~ /^#/){print "chr"$0} else{print $0} }'  Mus_musculus.GRCm38.98.gtf > Mus_musculus.GRCm38.98.corrected.gtf
+#the original gtf file is missing 'chr' prefix for the chromosome column, which will cause an error with htseq-count 
+#later on, so we add a 'chr' prefix to the beginning of every line, except the header
+awk '{ if($1 !~ /^#/){print "chr"$0} else{print $0} }'  Mus_musculus.GRCm38.99.gtf > Mus_musculus.GRCm38.99.corrected.gtf
 
-#Extract splice sites. This is so hisat2 knows to skip intronic sequences when aligning
-python3 /usr/local/bin/hisat2-2.1.0/hisat2_extract_splice_sites.py Mus_musculus.GRCm38.98.corrected.gtf > Mus_musculus.GRCm38.98.splicesites.txt
-
+python3 /usr/local/bin/hisat2-2.1.0/hisat2_extract_splice_sites.py Mus_musculus.GRCm38.99.corrected.gtf > Mus_musculus.GRCm38.99.splicesites.txt
+    
 #Align reads and convert to bam
 for i in *PE1.fastq.gz
 do
     name=$(echo $i | awk -F"/" '{print $NF}' | awk -F"_PE." '{print $1}')
     echo $name
-    hisat2 -x mm10 --rna-strandness RF --known-splicesite-infile Mus_musculus.GRCm38.98.splicesites.txt -1 $i -2 ${name}_PE2.fastq.gz | samtools view -bS - | samtools sort -n - -o $name.sorted.bam
+    hisat2 -x mm10 --rna-strandness RF --known-splicesite-infile Mus_musculus.GRCm38.99.splicesites.txt -1 $i -2 ${name}_PE2.fastq.gz | samtools view -bS - | samtools sort -n - -o $name.sorted.bam
 done
 
 #Counting alignment before and after junk removal for QC
