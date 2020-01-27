@@ -7,7 +7,7 @@ library(seq2pathway)
 source('https://raw.githubusercontent.com/guertinlab/seqOutBias/master/docs/R/seqOutBias_functions.R')
 source('https://raw.githubusercontent.com/mjg54/znf143_pro_seq_analysis/master/docs/ZNF143_functions.R')
 
-setwd('~/Desktop/Ashley_RNAseq')
+setwd('RNAseq_analysis')
 
 categorize.deseq.df <- function(df, fdr = 0.05, log2fold = 0.0, treat
 = 'Auxin') {
